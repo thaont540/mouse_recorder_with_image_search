@@ -1,0 +1,1 @@
+# mouse_recorder_with_image_search
