@@ -174,14 +174,15 @@ Func ShowRecordsList()
     EndIf
     
     ; Tạo GUI danh sách records
-    $hListGUI = GUICreate("Records List", 800, 400)
-    
+    $hListGUI = GUICreate("Records List", 900, 400)
+
     ; Tạo header
     GUICtrlCreateLabel("Record Name", 10, 10, 350, 20)
     GUISetFont(9, 600) ; Bold
     GUICtrlCreateLabel("Play Once", 370, 10, 80, 20)
     GUICtrlCreateLabel("Loop Play", 460, 10, 80, 20)
-    GUICtrlCreateLabel("Delete", 550, 10, 80, 20)
+    GUICtrlCreateLabel("Edit Name", 550, 10, 80, 20)
+    GUICtrlCreateLabel("Delete", 640, 10, 80, 20)
     GUISetFont(9, 400) ; Normal
     
     ; Reset button map
@@ -194,11 +195,13 @@ Func ShowRecordsList()
         GUICtrlCreateLabel($recordName, 10, $yPos + 5, 350, 20)
         Local $btnStartOne = GUICtrlCreateButton("Start One", 370, $yPos, 80, 25)
         Local $btnStartLoop = GUICtrlCreateButton("Start Loop", 460, $yPos, 80, 25)
-        Local $btnDelete = GUICtrlCreateButton("Delete", 550, $yPos, 80, 25)
-        
+        Local $btnEditName = GUICtrlCreateButton("Edit Name", 550, $yPos, 80, 25)
+        Local $btnDelete = GUICtrlCreateButton("Delete", 640, $yPos, 80, 25)
+
         ; Lưu mapping giữa button ID và record index
         _ArrayAdd($aButtonMap, $btnStartOne & "|" & $i)
         _ArrayAdd($aButtonMap, $btnStartLoop & "|" & $i)
+        _ArrayAdd($aButtonMap, $btnEditName & "|" & $i)
         _ArrayAdd($aButtonMap, $btnDelete & "|" & $i)
         
         $yPos += 35
@@ -227,6 +230,11 @@ Func ShowRecordsList()
                     PlayRecord($fileName, False)
                 ElseIf $btnText = "Start Loop" Then
                     PlayRecord($fileName, True)
+                ElseIf $btnText = "Edit Name" Then
+                    EditRecordName($fileName)
+                    GUIDelete($hListGUI)
+                    ShowRecordsList()
+                    ExitLoop
                 ElseIf $btnText = "Delete" Then
                     DeleteRecord($fileName)
                     GUIDelete($hListGUI)
@@ -307,6 +315,68 @@ Func PlayRecord($fileName, $loop = False)
     Until Not $loop Or Not $isLooping
     
     $isLooping = False
+EndFunc
+
+Func EditRecordName($fileName)
+    Local $oldName = StringTrimRight($fileName, 4) ; Bỏ .txt
+
+    ; Tạo GUI Edit Name
+    Local $hEditGUI = GUICreate("Edit Record Name", 400, 120)
+
+    GUICtrlCreateLabel("New Name:", 10, 15, 80, 20)
+    Local $inputNewName = GUICtrlCreateInput($oldName, 10, 35, 380, 25)
+
+    Local $btnSave = GUICtrlCreateButton("Save", 100, 70, 80, 30)
+    Local $btnCancel = GUICtrlCreateButton("Cancel", 220, 70, 80, 30)
+
+    GUISetState(@SW_SHOW, $hEditGUI)
+
+    ; Loop cho Edit Name window
+    While 1
+        $nMsg = GUIGetMsg()
+
+        If $nMsg = $GUI_EVENT_CLOSE Or $nMsg = $btnCancel Then
+            GUIDelete($hEditGUI)
+            ExitLoop
+        EndIf
+
+        If $nMsg = $btnSave Then
+            Local $newName = GUICtrlRead($inputNewName)
+
+            ; Kiểm tra tên không rỗng
+            If StringStripWS($newName, 3) = "" Then
+                MsgBox($MB_ICONWARNING, "Warning", "Record name cannot be empty!")
+                ContinueLoop
+            EndIf
+
+            ; Kiểm tra tên có chứa ký tự không hợp lệ
+            If StringRegExp($newName, '[\\/:*?"<>|]') Then
+                MsgBox($MB_ICONWARNING, "Warning", "Record name contains invalid characters!" & @CRLF & "Cannot use: \ / : * ? "" < > |")
+                ContinueLoop
+            EndIf
+
+            Local $newFileName = $newName & ".txt"
+            Local $oldFilePath = $recordsFolder & "\" & $fileName
+            Local $newFilePath = $recordsFolder & "\" & $newFileName
+
+            ; Kiểm tra xem file mới đã tồn tại chưa
+            If FileExists($newFilePath) And $fileName <> $newFileName Then
+                MsgBox($MB_ICONWARNING, "Warning", "A record with this name already exists!")
+                ContinueLoop
+            EndIf
+
+            ; Đổi tên file
+            If FileMove($oldFilePath, $newFilePath) Then
+                MsgBox($MB_ICONINFORMATION, "Success", "Record name changed successfully!")
+                GUIDelete($hEditGUI)
+                ExitLoop
+            Else
+                MsgBox($MB_ICONERROR, "Error", "Failed to rename record!")
+            EndIf
+        EndIf
+
+        Sleep(10)
+    WEnd
 EndFunc
 
 Func DeleteRecord($fileName)
